@@ -1,11 +1,16 @@
+import os
 import requests
 from datetime import datetime, timedelta
+from twilio.rest import Client
 
-stock_price_api_key = "C7B7CR0Z5UP9UKL4"
-stock_price_end_point = "https://www.alphavantage.co/query"
+# Retrieve the API keys and tokens from environment variables
+stock_price_api_key = os.getenv("STOCK_PRICE_API_KEY")
+news_api_key = os.getenv("NEWS_API_KEY")
+account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
-news_api_key = "b58e8dba9f5d4bb0bb1c23a990101fd1"
-news_end_point = "https://newsapi.org/v2/everything"
+stock_price_end_point = "https://www.alphavantage.co/query"  # Alpha Vantage
+news_end_point = "https://newsapi.org/v2/everything"  # News API
 
 STOCK = "TSLA"
 COMPANY_NAME = "Tesla Inc"
@@ -49,7 +54,8 @@ print(f"{yesterday}: {COMPANY_NAME} [{STOCK}] closing price: {yesterday_close}")
 print(f"{day_before_yesterday}: {COMPANY_NAME} [{STOCK}] closing price: {day_before_yesterday_close}")
 
 # Check for a 5% change and print "Get News" if condition is met
-if abs(yesterday_close - day_before_yesterday_close) / day_before_yesterday_close >= 0.05:
+percentage_change = (yesterday_close - day_before_yesterday_close) / day_before_yesterday_close * 100
+if abs(percentage_change) >= 5:
 
     # Fetch the news data
     news_response = requests.get(news_end_point, params=news_params)
@@ -58,27 +64,24 @@ if abs(yesterday_close - day_before_yesterday_close) / day_before_yesterday_clos
 
     # Print the title and description of the first 3 news articles
     articles = news_data.get("articles", [])
+    message_body = f"{COMPANY_NAME} [{STOCK}]: {'🔺' if percentage_change > 0 else '🔻'}{abs(percentage_change):.2f}%\n"
     for i, article in enumerate(articles[:3], start=1):
-        print(f"Article {i}:")
-        print(f"Title: {article['title']}")
-        print(f"Description: {article['description']}\n")
+        message_body += f"\nArticle {i}:\n\n"
+        message_body += f"Headline: {article['title']}\n\n"
+        message_body += f"Brief Summary: {article['description']}\n\n"
+        message_body += f"Source: {article['source']['name']}\n"
 
+    # Send message via Twilio
+    try:
+        client = Client(account_sid, auth_token)
+        message = client.messages.create(
+            from_='whatsapp:+123456',  # Enter From Number here
+            body=message_body,
+            to='whatsapp:+123456'  # Enter To Number here
+        )
+        print(f"Message status: {message.status}")
+    except Exception as e:
+        print(f"Error sending SMS: {e}")
 
 else:
     print(f"No significant changes in stock price from {day_before_yesterday} to {yesterday}")
-
-
-#  STEP 3: Use https://www.twilio.com
-# Send a seperate message with the percentage change and each article's title and description to your phone number. 
-
-
-# Optional: Format the SMS message like this:
-"""
-TSLA: 🔺2%
-Headline: Were Hedge Funds Right About Piling Into Tesla Inc. (TSLA)?. 
-Brief: We at Insider Monkey have gone over 821 13F filings that hedge funds and prominent investors are required to file by the SEC The 13F filings show the funds' and investors' portfolio positions as of March 31st, near the height of the coronavirus market crash.
-or
-"TSLA: 🔻5%
-Headline: Were Hedge Funds Right About Piling Into Tesla Inc. (TSLA)?. 
-Brief: We at Insider Monkey have gone over 821 13F filings that hedge funds and prominent investors are required to file by the SEC The 13F filings show the funds' and investors' portfolio positions as of March 31st, near the height of the coronavirus market crash.
-"""
