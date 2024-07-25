@@ -3,14 +3,29 @@ from datetime import datetime, timedelta
 
 stock_price_api_key = "C7B7CR0Z5UP9UKL4"
 stock_price_end_point = "https://www.alphavantage.co/query"
+
+news_api_key = "b58e8dba9f5d4bb0bb1c23a990101fd1"
+news_end_point = "https://newsapi.org/v2/everything"
+
 STOCK = "TSLA"
 COMPANY_NAME = "Tesla Inc"
+NEWS_COMPANY_NAME = "tesla"
 
+# Parameters for the stock price API request
 stock_price_params = {
     "function": "TIME_SERIES_DAILY",
     "symbol": STOCK,
     "outputsize": "compact",
     "apikey": stock_price_api_key,
+}
+
+# Parameters for the news API request
+news_params = {
+    "q": NEWS_COMPANY_NAME,
+    "language": "en",
+    "sortBy": "publishedAt",
+    "pageSize": 5,  # Fetch the first 3 news articles
+    "apiKey": news_api_key,
 }
 
 # Fetch the stock price data
@@ -35,10 +50,23 @@ print(f"{day_before_yesterday}: {COMPANY_NAME} [{STOCK}] closing price: {day_bef
 
 # Check for a 5% change and print "Get News" if condition is met
 if abs(yesterday_close - day_before_yesterday_close) / day_before_yesterday_close >= 0.05:
-    print("Get News")
 
-#  STEP 2: Use https://newsapi.org
-# Instead of printing ("Get News"), actually get the first 3 news pieces for the COMPANY_NAME. 
+    # Fetch the news data
+    news_response = requests.get(news_end_point, params=news_params)
+    news_response.raise_for_status()
+    news_data = news_response.json()
+
+    # Print the title and description of the first 3 news articles
+    articles = news_data.get("articles", [])
+    for i, article in enumerate(articles[:3], start=1):
+        print(f"Article {i}:")
+        print(f"Title: {article['title']}")
+        print(f"Description: {article['description']}\n")
+
+
+else:
+    print(f"No significant changes in stock price from {day_before_yesterday} to {yesterday}")
+
 
 #  STEP 3: Use https://www.twilio.com
 # Send a seperate message with the percentage change and each article's title and description to your phone number. 
